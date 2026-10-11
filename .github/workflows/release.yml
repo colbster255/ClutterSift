@@ -1,0 +1,45 @@
+name: Windows preview release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: read
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+  package:
+    needs: checks
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - name: Require tag and app versions to match
+        shell: pwsh
+        run: |
+          $packageVersion = (Get-Content package.json | ConvertFrom-Json).version
+          $appVersion = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
+          if ($env:GITHUB_REF_NAME -ne "v$packageVersion" -or $appVersion -ne $packageVersion) { throw 'Tag and app versions must match' }
+      - run: npm run desktop:build
+      - name: Checksums
+        shell: pwsh
+        run: |
+          Get-ChildItem src-tauri/target/release/bundle/nsis/*.exe | ForEach-Object { $hash = Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256; "$($hash.Hash.ToLower())  $($_.Name)" } | Set-Content SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          prerelease: true
+          name: ClutterSift ${{ github.ref_name }} — utility beta
+          body: "Open-source utility, provided as is under MIT. Storage analysis, explicit quarantine and restore. Quarantine retains files and does not free disk space; Recycle Bin integration is unavailable. Users are responsible for their choices and backups. See README and verification checklist. Unsigned unless a verified signing integration has been configured."
+          files: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            SHA256SUMS.txt

@@ -1,0 +1,18 @@
+name: Bug report
+description: Report a reproducible issue without private data
+body:
+  - type: markdown
+    attributes:
+      value: Do not include inventories, personal paths, API keys, or security exploit details. Use synthetic files. This beta does not remove files.
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps and expected/actual behavior
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: App version, Windows version, WebView2 version
+    validations:
+      required: true

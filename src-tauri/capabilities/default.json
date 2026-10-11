@@ -1,0 +1,1 @@
+{"identifier":"main-window","description":"Only the local main window can receive progress events.","windows":["main"],"permissions":["core:default"]}

@@ -1,0 +1,38 @@
+{
+  "name": "cluttersift",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc -b && vite build",
+    "test": "vitest run",
+    "test:native": "node tests/native-smoke.cjs",
+    "format": "prettier --write src tests scripts *.json *.ts *.html *.md docs .github",
+    "format:check": "prettier --check src tests scripts *.json *.ts *.html *.md docs .github",
+    "tauri": "tauri",
+    "desktop:build": "node scripts/build-desktop.cjs",
+    "lint": "tsc -b && node --check scripts/build-desktop.cjs && node --check tests/native-smoke.cjs",
+    "check": "npm run lint && vite build && npm test"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.8.0",
+    "lucide-react": "^0.468.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.0",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "jsdom": "^26.1.0",
+    "playwright": "^1.64.0",
+    "prettier": "^3.6.2",
+    "typescript": "~5.9.3",
+    "vite": "^6.4.4",
+    "vitest": "^5.0.3"
+  }
+}
