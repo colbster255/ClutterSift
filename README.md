@@ -1,72 +1,79 @@
 # ClutterSift
 
-An open-source Windows storage utility, with optional AI guidance and protections enforced in Rust.
+An open-source Windows storage utility for finding large files, reviewing duplicates, and quarantining eligible temporary files, with optional AI guidance.
 
-**0.1.0 is an experimental utility beta.** Scanning, duplicate analysis, protection rules, AI planning, dry-run reviews, explicitly approved quarantine, and restore are implemented. Quarantine moves eligible files into local recovery storage; **it does not reclaim disk space**. Windows Recycle Bin integration and permanent deletion are unavailable.
-
-MIT licensed, provided **as is, without warranty**. You decide which files to move and are responsible for using the utility and keeping backups. Open source allows inspection and modification; it does not guarantee that a recommendation is correct or a file is unnecessary.
+**Experimental beta (0.1.0).** Quarantine keeps files for recovery and **does not free disk space**. Recycle Bin integration and permanent deletion are not implemented.
 
 ![Cleaner interface, actual light-theme browser preview without native storage data](docs/screenshots/cleaner-light-browser-preview.png)
 
-Screenshot: actual rendered browser preview of the interface. Native storage access is disabled in a browser; no sample scan results are shown.
+_Browser preview; native storage access is disabled and no sample scan results are shown._
 
-## What works
+## Features
 
-- Tauri 2 desktop app with React/TypeScript, light/dark/system themes, and five focused screens. The Cleaner combines drive selection, category filters, file selection, and Analyze / Review cleanup actions in one place.
-- Background local-drive/folder scanning, cancellation, progress events, error counts, SQLite inventory, category totals, and paged largest-file results.
-- Analysis of installers, archives, logs, old downloads, large files, and development files. These categories do **not** imply removability.
-- Opt-in staged duplicate analysis: equal size → first/last 8 KB SHA-256 → full SHA-256. Matches stay review-only.
-- Built-in system, application, known personal-folder, application-data, and project protections; confirmed custom paths, filename globs, and scan exclusions.
-- Local natural-language protection proposals for recognized folders and existing absolute paths, with confirmation before saving. Quote paths with spaces; custom and relocated locations need explicit paths.
-- Offline deterministic guidance, optional loopback Ollama and opt-in OpenRouter integrations with strict response validation.
-- Windows Credential Manager API-key storage. No file contents, filenames, or paths are transmitted to AI providers.
-- Registry-based installed-app inventory with reported sizes where available.
-- Per-item dry-run review and one-use, 15-minute approvals for quarantine; backend policy, Windows object identity, precise timestamp, size, and content-hash revalidation.
-- Durable per-file recovery records, cancellation between files/during verification, and restore to the original path without overwriting.
+- Read-only scans of local drives, folders, or files, with category filters and duplicate analysis.
+- Built-in protection rules plus custom protected paths and scan exclusions.
+- Cleanup previews, explicitly approved quarantine, and confirmed restore without overwriting.
+- Offline guidance, optional local Ollama, or opt-in OpenRouter cloud AI.
+- Light, dark, and system themes. No telemetry or analytics.
 
-Only old `.tmp` files **directly inside** the OS temporary folder, older than seven days and allowed by current policy, are preview candidates. This does not certify that they are safe to delete.
+Currently, only `.tmp` files directly inside the OS temporary folder, older than seven days and allowed by protection rules, can be quarantined. Other categories and duplicate matches are analysis-only. Quarantine requires the same volume; restore files before removing app data or uninstalling.
 
-## Run on Windows
+## Windows setup
 
-Requirements: Windows 10/11 x64 with Microsoft Edge WebView2 Runtime, Node.js 24 LTS, stable Rust MSVC, and Visual Studio 2022 Build Tools with Desktop development with C++ and a Windows SDK.
+Build and run from source on **Windows 10/11 x64**. Install these prerequisites:
+
+- Git and Node.js 24 LTS.
+- Stable Rust with the MSVC toolchain (`rustup default stable-msvc`).
+- Visual Studio 2022 Build Tools: select **Desktop development with C++** and a Windows SDK.
+- Microsoft Edge WebView2 Runtime.
+
+Then open PowerShell:
 
 ```powershell
+git clone https://github.com/colbster255/ClutterSift.git
+cd ClutterSift
 npm ci
 npm run tauri -- dev
 ```
 
-Start with a synthetic folder containing copies of test files. In **Cleaner**, choose a local drive, folder, or individual file and click **Analyze**. Explore categories and select files, then click **Review cleanup**. A separate checkbox and approval button authorize quarantine. **Recovery** shows outcomes and requires confirmation to restore. **Protected items** requires confirmation before saving rule changes. Settings need **Save preferences** to persist provider and theme changes. Only one instance can use the same application data directory at a time.
-
-Quarantine is stored beside the SQLite database in the app-local `quarantine` folder. A move must stay on the same volume; unsupported or locked files are left in place. There is no copy/delete fallback, automatic purge, or in-app permanent deletion. Keep the journal and quarantine folder together and restore files before deleting app data or uninstalling. Missing original directories, changed recovery files, hard links, and reparse points stop automatic restoration. Quarantine is not a backup against disk failure or external deletion.
+To build an installer:
 
 ```powershell
-npm run check
-cargo test --manifest-path src-tauri/Cargo.toml --locked
 npm run desktop:build
 ```
 
-The NSIS installer is written to `src-tauri/target/release/bundle/nsis/`. It installs per-user without silent elevation. Unsigned builds may trigger Windows reputation warnings. Do not bypass warnings without verifying the source and artifact.
+Find it in `src-tauri/target/release/bundle/nsis/`. Use this build command for distributable artifacts; it checks for embedded private development paths. Builds are currently unsigned.
 
-Use `desktop:build` for distributable artifacts. It remaps home/workspace paths in Rust diagnostics and rejects executable/installer output containing those original paths in UTF-8 or UTF-16. Raw Tauri builds can embed private development paths. The wrapper supports native optimized builds; custom profiles/targets require their own artifact validation. Remapping does not configure code signing.
+## Use it
 
-After building, `npm run test:native` runs a Windows/WebView2 integration test with synthetic fixtures. It launches its own app process with a temporary loopback debugging port, exercises real IPC, scanning, duplicates, protection proposals, and an approved quarantine/restore round trip on a uniquely created old `.tmp` file. It closes that process and removes only its fixtures. It does not change saved preferences or call cloud AI. The port is not enabled in normal app launches. Close other app instances first. An interactive Windows session is required; this test is not part of headless CI. Synthetic history records remain in the local journal.
+1. Start with a test folder containing copies of files. In **Cleaner**, choose a drive, folder, or file and click **Analyze**.
+2. Review categories and selections, then click **Review cleanup**. The preview changes no files; a separate confirmation authorizes quarantine.
+3. Use **Recovery** to review outcomes and confirm restores. Add rules under **Protected items** and save preferences under **Settings**.
 
-## Optional AI
+## Optional AI setup
 
-Scanning needs no AI. In **Settings → AI provider → Ollama**, choose **Install Ollama & download model** for automated setup. It uses Windows Package Manager to install Ollama for the current user if needed, starts a loopback server if none is running, and downloads `qwen2.5:1.5b` (about 1 GB). Allow at least 4 GB for Ollama plus model storage. The button accepts the linked software/model terms. Setup verifies the installed model before saving Ollama preferences; it does not run an inference test. Progress, cancellation, a read-only connection/model check, and manual fallback instructions are included. Cancellation retains installed software and model data; a separate installer may finish. The server remains available after setup. No setup runs merely from selecting a provider.
+Scanning works without AI. Keep the default **Offline** provider to use it without a model or account.
 
-The endpoint is fixed at `http://127.0.0.1:11434`; redirects and HTTP proxies are disabled. A server started by ClutterSift receives `OLLAMA_NO_CLOUD=1`; an already-running server keeps its existing configuration. For an existing service, set that user environment variable and restart Ollama to disable its cloud features. Cloud-named models are rejected. A loopback endpoint alone cannot prove a separately configured service is offline. See the [Ollama Windows instructions](https://docs.ollama.com/windows), [cloud configuration](https://docs.ollama.com/faq#how-do-i-disable-ollama-cloud-features), and [model information/license](https://ollama.com/library/qwen2.5:1.5b).
+### Local: Ollama
 
-For OpenRouter, the Settings panel guides you through account/credits, [creating a limited API key](https://openrouter.ai/settings/keys), choosing a model with [structured-output support](https://openrouter.ai/docs/guides/features/structured-outputs), saving the key in Windows Credential Manager, explicit consent, and a first request. Provider changes clear incompatible model names and reset cloud consent. Your **typed goal is transmitted verbatim**: do not include private information. Provider failures are surfaced without affecting scanning. Recommendations reference at most 200 eligible candidate IDs, never executable paths or commands.
+1. Open **Settings → AI provider → Ollama**.
+2. Click **Install Ollama & download model** and review the linked software/model terms. Setup uses Windows Package Manager (`winget`) and downloads `qwen2.5:1.5b` (about 1 GB); allow at least 4 GB for Ollama plus model storage.
+3. Wait for setup to finish. It verifies the model and saves the provider automatically. Use the connection check or in-app manual instructions if setup fails.
 
-## Limits and release status
+Setup starts Ollama locally when needed. Cancellation keeps installed software and model data; a separate installer may finish. Existing Ollama services keep their configuration—see [privacy and local-service configuration](docs/PRIVACY.md). Full automated installation and live inference still need verification; see [validation](docs/VALIDATION.md).
 
-Disk-space reclamation, Recycle Bin integration, application-uninstall actions, orphan detection, saved protection profiles, empty-directory cleanup, largest-folder aggregation, and persistent metadata-reuse caching are not implemented. Duplicate analysis is capped at 20,000 files and size groups of 2–1,000; files outside the cap are not checked. No million-file performance or HDD throughput claims have been validated. Scan error messages are aggregated as counts; cleanup outcomes include per-item errors. Non-Unicode paths are skipped rather than stored as ambiguous replacement characters; execution also rejects paths it cannot match to the opened object.
+### Cloud: OpenRouter
 
-Windows paths can change during read-only scans. The move layer separately opens files without sharing write/delete access, pins their directory chain, rejects reparse points and multiple hard links, verifies the opened path, and renames the verified handle without replacement. This has synthetic test coverage, not a guarantee against every Windows filesystem/filter or adversarial condition. Protection cannot identify every dependency, relocated personal folder, or development environment. Local inventories and recovery metadata are not encrypted.
+1. Create an [OpenRouter account](https://openrouter.ai/) and add credits if your chosen model requires them.
+2. [Create an API key](https://openrouter.ai/settings/keys) with a spending limit.
+3. In **Settings**, select **OpenRouter** and enter a model ID that supports [structured outputs](https://openrouter.ai/docs/guides/features/structured-outputs).
+4. Save the key to Windows Credential Manager, enable cloud consent, and click **Save preferences**.
+5. Open **AI assistant** and submit a goal.
 
-See [architecture](docs/ARCHITECTURE.md), [privacy](docs/PRIVACY.md), [security limitations](SECURITY.md), [Windows testing](docs/WINDOWS_TESTING.md), [optional signing](docs/SIGNING.md), and [release readiness](docs/RELEASE_READINESS.md). No telemetry, no analytics, no fabricated benchmarks. Native Windows screenshots and the manual integration checklist are still needed before a cleaner release.
+Your typed goal is sent verbatim, along with limited candidate IDs, categories, and sizes. File contents, filenames, and paths are not sent. Keep private information out of goals.
 
-## Contribute
+## Contributing and details
 
-MIT licensed. Read [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Never test cleanup against real user files. Do not submit private inventories, logs, API keys, or personal paths in issues.
+See [contributing](CONTRIBUTING.md), [architecture](docs/ARCHITECTURE.md), [privacy](docs/PRIVACY.md), [security](SECURITY.md), and [testing and limitations](docs/VALIDATION.md).
+
+MIT licensed, provided **as is, without warranty**. Users are responsible for their choices and backups. Test cleanup only against synthetic fixtures; never post private inventories, paths, or keys in issues.
